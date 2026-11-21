@@ -1,0 +1,74 @@
+name: release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    strategy:
+      matrix:
+        include:
+          - arch: amd64
+            suffix: ''
+          - arch: arm64
+            suffix: '-arm64'
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: 'stable'
+
+      - name: Test
+        run: go test ./...
+
+      - name: Build
+        shell: pwsh
+        env:
+          GOOS: windows
+          GOARCH: ${{ matrix.arch }}
+          CGO_ENABLED: '0'
+        run: |
+          $ver = "${{ github.ref_name }}" -replace '^v', ''
+          go build -trimpath -ldflags "-H windowsgui -s -w -X main.version=$ver" `
+            -o "CampusAutoLogin${{ matrix.suffix }}.exe" .
+          Get-Item "CampusAutoLogin${{ matrix.suffix }}.exe" | Select-Object Name, Length
+
+      - name: Package
+        shell: pwsh
+        run: |
+          $ver = "${{ github.ref_name }}" -replace '^v', ''
+          $dir = "CampusAutoLogin-v$ver"
+          New-Item -ItemType Directory -Force -Path "$dir" | Out-Null
+          Copy-Item "CampusAutoLogin${{ matrix.suffix }}.exe" -Destination "$dir\"
+          Copy-Item "README.md" -Destination "$dir\使用说明.md"
+          Compress-Archive -Path $dir -DestinationPath "CampusAutoLogin-v$ver-windows-${{ matrix.arch }}.zip" -Force
+          Get-ChildItem "$dir" | Select-Object Name, Length
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: CampusAutoLogin-${{ matrix.arch }}
+          path: CampusAutoLogin-v*-windows-${{ matrix.arch }}.zip
+          if-no-files-found: error
+
+  release:
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*.zip
+          generate_release_notes: true
