@@ -1,0 +1,24 @@
+# 本机运行时产生的东西，不进仓库
+config.json
+cred.dat
+cred.dat.*
+*.log
+*.log.1
+*.exe
+redir-test.txt
+
+# 逆向时留档的门户 JS（厂商版权，只在本机对照用）
+reference/
+
+# 编辑器
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# 调试临时文件
+_*.txt
+inline-probe*
+
+# 分发包
+*.zip
